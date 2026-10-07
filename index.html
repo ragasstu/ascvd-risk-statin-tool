@@ -359,7 +359,7 @@ function validate(){
   if(sbp<90||sbp>200) return 'SBP must be 90–200 mmHg.';
   if(egfr<15||egfr>140) return 'Calculated eGFR is outside the validated PREVENT input range (15–140 mL/min/1.73m²). Manage the out-of-range value clinically or verify against the official AHA calculator.';
   const dm=radio('dm'), hiv=radio('hiv'), art=radio('art');
-  const diabetesSpecial=(age>=40&&age<=75&&dm===1);
+  const diabetesSpecial=(age>=40&&age<=79&&dm===1);
   const hivSpecial=(age>=40&&age<=75&&hiv===1&&art===1);
   if(ldl>189) return 'LDL-C ≥190 mg/dL is outside this PREVENT-based pathway. Use the severe hypercholesterolemia / inherited lipid-disorder pathway instead.';
   if(ldl<70 && !(diabetesSpecial||hivSpecial)) return 'LDL-C <70 mg/dL is outside the general PREVENT-based LDL 70–189 mg/dL pathway. If a condition-specific indication is present, use the relevant disease-specific guideline pathway.';
@@ -382,17 +382,18 @@ function calculate(){
   const r10=prevent10(sex,age,sbp,tc,hdl,bp,statin,dm,smoke,egfr), r30=age<=59?prevent30(sex,age,sbp,tc,hdl,bp,statin,dm,smoke,egfr):null;
   const [cat,range]=riskCat(r10);
   const specialDiabetes=(age>=40&&age<=75&&dm===1);
+  const olderDiabetes=(age>75&&age<=79&&dm===1);
   const youngDiabetes=(age>=30&&age<=39&&dm===1);
   const specialCkd=(age>=40&&age<=75&&knownCkd===1&&ldl>=70&&ldl<=189);
   const specialHiv=(age>=40&&age<=75&&hivStable);
-  const specialPopulation=specialDiabetes||specialCkd||specialHiv;
+  const specialPopulation=specialDiabetes||olderDiabetes||specialCkd||specialHiv;
 
   $('risk10').textContent=formatRisk(r10); $('category').textContent=cat+' risk ('+range+')';
   const deg=Math.max(4,Math.min(100,r10/10*100))*3.6; const color=cat==='Low'?'#0f7a5a':cat==='Borderline'?'#b98013':cat==='Intermediate'?'#d46a16':'#b73434';
   $('riskCircle').style.background=`conic-gradient(${color} 0 ${deg}deg,#e8eeeb ${deg}deg 360deg)`;
 
   let rec='',ex='',targets='',cacAdvice='',special='';
-  const lowLdlSpecial=(ldl<70&&(specialDiabetes||specialHiv));
+  const lowLdlSpecial=(ldl<70&&(specialDiabetes||olderDiabetes||specialHiv));
   $('dmYoungInfo').classList.toggle('hide', !(age>=30&&age<=39&&dm===1));
   const startOrOptimize=(startText,optimizeText)=>statin?optimizeText:startText;
 
@@ -424,6 +425,7 @@ function calculate(){
   if(specialPopulation){
     const reasons=[];
     if(specialDiabetes) reasons.push('diabetes age 40–75');
+    if(olderDiabetes) reasons.push('diabetes age >75');
     if(specialCkd) reasons.push('confirmed CKD stage 3–4');
     if(specialHiv) reasons.push('HIV on stable combination ART');
 
@@ -439,6 +441,12 @@ function calculate(){
         : 'Diabetes age 40–75: initiate at least moderate-intensity statin therapy. Increase to high-intensity statin if PREVENT-ASCVD 10-year risk ≥10% or multiple ASCVD risk factors are present.';
       targets=targetCards('≥30% to 49% (≥50% if high-intensity chosen)','<100 mg/dL (consider <70 mg/dL with high-intensity indication)','<130 mg/dL (consider <100 mg/dL with high-intensity indication)');
       ex='2026 ACC/AHA: adults age 40–75 with diabetes have a primary-prevention statin indication regardless of the PREVENT percentage. PREVENT can still help identify those who may benefit from more intensive LDL lowering.';
+    } else if(olderDiabetes){
+      rec=statin
+        ? 'Diabetes age >75: review ongoing statin therapy in a clinician–patient benefit–risk discussion. Moderate- or high-intensity statin therapy may be appropriate depending on ASCVD risk, life expectancy, frailty, polypharmacy, adverse-event susceptibility, and patient preferences.'
+        : 'Diabetes age >75: discuss initiation of moderate- or high-intensity statin therapy based on expected ASCVD benefit, life expectancy, frailty, polypharmacy, adverse-event susceptibility, and patient preferences.';
+      targets=targetCards('Individualized','Individualized','Individualized');
+      ex='2026 ACC/AHA: adults >75 years with diabetes are likely to benefit from statin therapy, but treatment intensity should be individualized because evidence is more limited and competing risks/adverse effects become more important.';
     } else if(specialCkd){
       rec=statin
         ? 'Confirmed CKD stage 3–4 age 40–75: LDL-lowering therapy is recommended. Assess the current regimen; moderate-intensity statin therapy or moderate-intensity statin plus ezetimibe is recommended.'
@@ -454,6 +462,7 @@ function calculate(){
 
     let conditionDetails=[];
     if(specialDiabetes) conditionDetails.push('Diabetes age 40–75: at least moderate-intensity statin; increase to high-intensity if PREVENT-ASCVD 10-year risk ≥10% or multiple ASCVD risk factors are present.');
+    if(olderDiabetes) conditionDetails.push('Diabetes age >75: individualize moderate- versus high-intensity statin therapy after clinician–patient benefit–risk discussion.');
     if(specialCkd) conditionDetails.push('CKD stage 3–4: moderate-intensity statin or moderate-intensity statin + ezetimibe is recommended for age 40–75 with LDL-C 70–189 mg/dL.');
     if(specialHiv) conditionDetails.push('HIV on stable ART: statin therapy is recommended; check antiretroviral–statin interactions.');
     special='Special-population pathway active. '+conditionDetails.join(' ');
@@ -479,12 +488,12 @@ function calculate(){
   }
   $('enhancerAdvice').classList.toggle('hide',!enhancerAdvice); $('enhancerAdvice').innerHTML=enhancerAdvice;
 
-  if(uncertain&&(cat==='Borderline'||cat==='Intermediate')){
+  if(!specialPopulation && uncertain&&(cat==='Borderline'||cat==='Intermediate')){
     const cacEligible=(sex==='male'&&age>=40)||(sex==='female'&&age>=45);
     const cacVal=$('cac').value===''?null:+$('cac').value;
     const cacPercentile=$('cacPercentile').value;
     const familyHx=$('enhFamily').checked;
-    const cacZeroException=$('geneticCVD').checked || (dm===1&&age>40) || smoke===1 || familyHx;
+    const cacZeroException=$('geneticCVD').checked || (dm===1&&age>=40) || smoke===1 || familyHx;
 
     if(!cacEligible && cacVal===null){
       cacAdvice='CAC is not routinely suggested by this 2026 primary-prevention pathway at this age. Selective CAC assessment is recommended mainly for men ≥40 years and women ≥45 years when borderline/intermediate risk leaves the treatment decision uncertain.';
@@ -493,7 +502,7 @@ function calculate(){
     } else if(cacVal===0){
       if(cacZeroException){
         const exceptions=[];
-        if(dm===1&&age>40) exceptions.push('diabetes age >40');
+        if(dm===1&&age>=40) exceptions.push('diabetes age >40');
         if(smoke===1) exceptions.push('current cigarette smoking');
         if(familyHx) exceptions.push('strong/premature family history of ASCVD');
         if($('geneticCVD').checked) exceptions.push('familial hypercholesterolemia/severe inherited lipid disorder');

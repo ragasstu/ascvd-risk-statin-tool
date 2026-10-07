@@ -401,7 +401,7 @@ function calculate(){
     const specialLow=(age<=59)&&((ldl>=160&&ldl<=189)||(r30!==null&&r30>=10));
     if(specialLow){
       rec=startOrOptimize('A moderate-intensity statin is reasonable.','Current statin therapy is present — assess adherence/intensity and ensure at least moderate-intensity therapy if clinically appropriate.');
-      ex='Low 10-year risk, but age 30–59 plus LDL-C 160–189 mg/dL and/or 30-year ASCVD risk ≥10% meets the low-risk treatment branch in the 2026 primary-prevention algorithm.';
+      ex='Low 10-year risk; however, age 30–59 with LDL-C 160–189 mg/dL and/or 30-year ASCVD risk ≥10% may still support statin therapy.';
       targets=targetCards('≥30%','<100 mg/dL','<130 mg/dL');
     } else {
       rec=statin?'Health behavior counseling; no intensification is required from this low-risk branch alone. Review the indication, adherence, tolerance, and achieved LDL-C response to the current statin.':'Health behavior counseling.';

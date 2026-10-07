@@ -264,6 +264,21 @@ function convertLipidValueOnUnitChange(valueId,unitId){
   });
   syncLipidUnit(v,u,h,k);
 });
+function convertCreatinineValueOnUnitChange(){
+  const input=$('creatinine'), select=$('creatinineUnit');
+  const previous=select.dataset.previousUnit || 'umol';
+  const next=select.value;
+  const raw=parseFloat(input.value);
+  if(Number.isFinite(raw) && raw>0 && previous!==next){
+    const converted = previous==='umol' && next==='mgdl' ? raw/88.4 : raw*88.4;
+    input.value = next==='mgdl' ? converted.toFixed(2) : Math.round(converted);
+  }
+  select.dataset.previousUnit=next;
+  input.placeholder = next==='umol' ? 'e.g., 80' : 'e.g., 0.9';
+}
+$('creatinineUnit').dataset.previousUnit=$('creatinineUnit').value;
+$('creatinineUnit').addEventListener('change',convertCreatinineValueOnUnitChange);
+
 function calculateEgfr(){
   const sex=$('sex').value, age=+$('age').value, raw=+$('creatinine').value, unit=$('creatinineUnit').value;
   if(!sex || !age || age<18 || !raw || raw<=0){ $('egfr').value=''; $('egfrDisplay').textContent='—'; return null; }
@@ -343,7 +358,11 @@ function validate(){
   if(hdl<20||hdl>100) return 'HDL-C must be within 20–100 mg/dL (0.52–2.59 mmol/L).';
   if(sbp<90||sbp>200) return 'SBP must be 90–200 mmHg.';
   if(egfr<15||egfr>140) return 'Calculated eGFR is outside the validated PREVENT input range (15–140 mL/min/1.73m²). Manage the out-of-range value clinically or verify against the official AHA calculator.';
-  if(ldl<70||ldl>189) return 'This specific 2026 primary-prevention algorithm applies to LDL-C 70–189 mg/dL (1.81–4.89 mmol/L). The entered LDL-C falls outside this pathway.';
+  const dm=radio('dm'), hiv=radio('hiv'), art=radio('art');
+  const diabetesSpecial=(age>=40&&age<=75&&dm===1);
+  const hivSpecial=(age>=40&&age<=75&&hiv===1&&art===1);
+  if(ldl>189) return 'LDL-C ≥190 mg/dL is outside this PREVENT-based pathway. Use the severe hypercholesterolemia / inherited lipid-disorder pathway instead.';
+  if(ldl<70 && !(diabetesSpecial||hivSpecial)) return 'LDL-C <70 mg/dL is outside the general PREVENT-based LDL 70–189 mg/dL pathway. If a condition-specific indication is present, use the relevant disease-specific guideline pathway.';
   return '';
 }
 function formatRisk(r){
@@ -364,15 +383,16 @@ function calculate(){
   const [cat,range]=riskCat(r10);
   const specialDiabetes=(age>=40&&age<=75&&dm===1);
   const youngDiabetes=(age>=30&&age<=39&&dm===1);
-  const specialCkd=(age>=40&&age<=75&&knownCkd===1);
+  const specialCkd=(age>=40&&age<=75&&knownCkd===1&&ldl>=70&&ldl<=189);
   const specialHiv=(age>=40&&age<=75&&hivStable);
-  const specialPopulation=specialDiabetes||youngDiabetes||specialCkd||specialHiv;
+  const specialPopulation=specialDiabetes||specialCkd||specialHiv;
 
   $('risk10').textContent=formatRisk(r10); $('category').textContent=cat+' risk ('+range+')';
   const deg=Math.max(4,Math.min(100,r10/10*100))*3.6; const color=cat==='Low'?'#0f7a5a':cat==='Borderline'?'#b98013':cat==='Intermediate'?'#d46a16':'#b73434';
   $('riskCircle').style.background=`conic-gradient(${color} 0 ${deg}deg,#e8eeeb ${deg}deg 360deg)`;
 
   let rec='',ex='',targets='',cacAdvice='',special='';
+  const lowLdlSpecial=(ldl<70&&(specialDiabetes||specialHiv));
   $('dmYoungInfo').classList.toggle('hide', !(age>=30&&age<=39&&dm===1));
   const startOrOptimize=(startText,optimizeText)=>statin?optimizeText:startText;
 
@@ -404,7 +424,6 @@ function calculate(){
   if(specialPopulation){
     const reasons=[];
     if(specialDiabetes) reasons.push('diabetes age 40–75');
-    if(youngDiabetes) reasons.push('diabetes age 20–39');
     if(specialCkd) reasons.push('confirmed CKD stage 3–4');
     if(specialHiv) reasons.push('HIV on stable combination ART');
 
@@ -420,12 +439,6 @@ function calculate(){
         : 'Diabetes age 40–75: initiate at least moderate-intensity statin therapy. Increase to high-intensity statin if PREVENT-ASCVD 10-year risk ≥10% or multiple ASCVD risk factors are present.';
       targets=targetCards('≥30% to 49% (≥50% if high-intensity chosen)','<100 mg/dL (consider <70 mg/dL with high-intensity indication)','<130 mg/dL (consider <100 mg/dL with high-intensity indication)');
       ex='2026 ACC/AHA: adults age 40–75 with diabetes have a primary-prevention statin indication regardless of the PREVENT percentage. PREVENT can still help identify those who may benefit from more intensive LDL lowering.';
-    } else if(youngDiabetes){
-      rec=statin
-        ? 'Diabetes age 20–39: moderate-intensity statin may be reasonable if a diabetes-specific risk enhancer is present. For adults ≥30 years, also consider statin therapy if PREVENT-ASCVD 10-year risk ≥3% or 30-year risk ≥10%. Assess adherence and current statin intensity.'
-        : 'Diabetes age 20–39: moderate-intensity statin may be reasonable if a diabetes-specific risk enhancer is present. For adults ≥30 years, also consider statin therapy if PREVENT-ASCVD 10-year risk ≥3% or 30-year risk ≥10%.';
-      targets=targetCards('≥30% LDL-C reduction','<100 mg/dL','<130 mg/dL');
-      ex='A diabetes-specific risk enhancer is being applied separately from the general ASCVD risk-enhancing factors.';
     } else if(specialCkd){
       rec=statin
         ? 'Confirmed CKD stage 3–4 age 40–75: LDL-lowering therapy is recommended. Assess the current regimen; moderate-intensity statin therapy or moderate-intensity statin plus ezetimibe is recommended.'
@@ -441,10 +454,13 @@ function calculate(){
 
     let conditionDetails=[];
     if(specialDiabetes) conditionDetails.push('Diabetes age 40–75: at least moderate-intensity statin; increase to high-intensity if PREVENT-ASCVD 10-year risk ≥10% or multiple ASCVD risk factors are present.');
-    if(youngDiabetes) conditionDetails.push('Diabetes age 20–39: consider diabetes-specific risk enhancers when deciding on moderate-intensity statin therapy.');
     if(specialCkd) conditionDetails.push('CKD stage 3–4: moderate-intensity statin or moderate-intensity statin + ezetimibe is recommended for age 40–75 with LDL-C 70–189 mg/dL.');
     if(specialHiv) conditionDetails.push('HIV on stable ART: statin therapy is recommended; check antiretroviral–statin interactions.');
     special='Special-population pathway active. '+conditionDetails.join(' ');
+  }
+
+  if(lowLdlSpecial){
+    special=(special?special+' ':'')+'LDL-C is <70 mg/dL, which is outside the general LDL 70–189 mg/dL PREVENT treatment pathway; however, the applicable diabetes/HIV condition-specific statin recommendation is still displayed.';
   }
 
   if(hivStatus==='other'){
@@ -525,7 +541,7 @@ function copyNote(){
   ].filter(Boolean).join('\n');
   navigator.clipboard?.writeText(lines).then(()=>alert('Assessment copied to clipboard.')).catch(()=>prompt('Copy assessment:',lines));
 }
-function resetForm(){document.querySelectorAll('input[type="number"]').forEach(x=>x.value='');document.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);$('sex').value='';$('egfr').value='';$('egfrDisplay').textContent='—';$('egfrCkdHint').textContent='';$('creatinineUnit').value='umol';['ldlUnit','tcUnit','hdlUnit'].forEach(id=>{ $(id).value='mmol'; $(id).dataset.previousUnit='mmol'; });[['ldl','ldlUnit','ldlHint','ldl'],['tc','tcUnit','tcHint','tc'],['hdl','hdlUnit','hdlHint','hdl']].forEach(([v,u,h,k])=>syncLipidUnit(v,u,h,k));['dmNo','hivNo','artNo','ckdNo','smokeNo','bpNo','stNo','uncertainNo'].forEach(id=>$(id).checked=true);$('artField').style.display='none';$('cacField').style.display='none';$('cacPercentile').value='unknown';$('cacPercentileWrap').style.display='none';$('msg').classList.add('hide');$('results').style.display='none';window.scrollTo({top:0,behavior:'smooth'});}
+function resetForm(){document.querySelectorAll('input[type="number"]').forEach(x=>x.value='');document.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);$('sex').value='';$('egfr').value='';$('egfrDisplay').textContent='—';$('egfrCkdHint').textContent='';$('creatinineUnit').value='umol'; $('creatinineUnit').dataset.previousUnit='umol'; $('creatinine').placeholder='e.g., 80';['ldlUnit','tcUnit','hdlUnit'].forEach(id=>{ $(id).value='mmol'; $(id).dataset.previousUnit='mmol'; });[['ldl','ldlUnit','ldlHint','ldl'],['tc','tcUnit','tcHint','tc'],['hdl','hdlUnit','hdlHint','hdl']].forEach(([v,u,h,k])=>syncLipidUnit(v,u,h,k));['dmNo','hivNo','artNo','ckdNo','smokeNo','bpNo','stNo','uncertainNo'].forEach(id=>$(id).checked=true);$('artField').style.display='none';$('cacField').style.display='none';$('cacPercentile').value='unknown';$('cacPercentileWrap').style.display='none';$('msg').classList.add('hide');$('results').style.display='none';window.scrollTo({top:0,behavior:'smooth'});}
 </script>
 </body>
 </html>

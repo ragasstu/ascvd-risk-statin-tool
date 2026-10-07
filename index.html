@@ -78,8 +78,8 @@ label{font-weight:650;font-size:14px;display:block;margin-bottom:6px}.hint{font-
       <div class="field">
         <label>Serum creatinine <span class="hint">for automatic eGFR</span></label>
         <div class="unitRow">
-          <input id="creatinine" type="number" min="0.1" step="0.01" placeholder="e.g., 0.9">
-          <select id="creatinineUnit" aria-label="Creatinine unit"><option value="mgdl">mg/dL</option><option value="umol">µmol/L</option></select>
+          <input id="creatinine" type="number" min="0.1" step="0.01" placeholder="e.g., 80">
+          <select id="creatinineUnit" aria-label="Creatinine unit"><option value="umol" selected>µmol/L</option><option value="mgdl">mg/dL</option></select>
         </div>
         <div class="hint" style="margin-top:6px">eGFR is calculated automatically using the 2021 CKD‑EPI creatinine equation (race-free).</div>
       </div>
@@ -525,7 +525,7 @@ function copyNote(){
   ].filter(Boolean).join('\n');
   navigator.clipboard?.writeText(lines).then(()=>alert('Assessment copied to clipboard.')).catch(()=>prompt('Copy assessment:',lines));
 }
-function resetForm(){document.querySelectorAll('input[type="number"]').forEach(x=>x.value='');document.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);$('sex').value='';$('egfr').value='';$('egfrDisplay').textContent='—';$('egfrCkdHint').textContent='';$('creatinineUnit').value='mgdl';['ldlUnit','tcUnit','hdlUnit'].forEach(id=>{ $(id).value='mmol'; $(id).dataset.previousUnit='mmol'; });[['ldl','ldlUnit','ldlHint','ldl'],['tc','tcUnit','tcHint','tc'],['hdl','hdlUnit','hdlHint','hdl']].forEach(([v,u,h,k])=>syncLipidUnit(v,u,h,k));['dmNo','hivNo','artNo','ckdNo','smokeNo','bpNo','stNo','uncertainNo'].forEach(id=>$(id).checked=true);$('artField').style.display='none';$('cacField').style.display='none';$('cacPercentile').value='unknown';$('cacPercentileWrap').style.display='none';$('msg').classList.add('hide');$('results').style.display='none';window.scrollTo({top:0,behavior:'smooth'});}
+function resetForm(){document.querySelectorAll('input[type="number"]').forEach(x=>x.value='');document.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);$('sex').value='';$('egfr').value='';$('egfrDisplay').textContent='—';$('egfrCkdHint').textContent='';$('creatinineUnit').value='umol';['ldlUnit','tcUnit','hdlUnit'].forEach(id=>{ $(id).value='mmol'; $(id).dataset.previousUnit='mmol'; });[['ldl','ldlUnit','ldlHint','ldl'],['tc','tcUnit','tcHint','tc'],['hdl','hdlUnit','hdlHint','hdl']].forEach(([v,u,h,k])=>syncLipidUnit(v,u,h,k));['dmNo','hivNo','artNo','ckdNo','smokeNo','bpNo','stNo','uncertainNo'].forEach(id=>$(id).checked=true);$('artField').style.display='none';$('cacField').style.display='none';$('cacPercentile').value='unknown';$('cacPercentileWrap').style.display='none';$('msg').classList.add('hide');$('results').style.display='none';window.scrollTo({top:0,behavior:'smooth'});}
 </script>
 </body>
 </html>

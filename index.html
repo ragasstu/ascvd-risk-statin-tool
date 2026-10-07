@@ -527,7 +527,16 @@ function calculate(){
   $('cacAdvice').classList.toggle('hide',!cacAdvice);$('cacAdvice').textContent=cacAdvice;
   $('special').classList.toggle('hide',!special);$('special').textContent=special;
 
-  if(r30!==null){$('thirtyAdvice').classList.remove('hide');$('thirtyAdvice').innerHTML='<b>30-year PREVENT-ASCVD risk:</b> '+formatRisk(r30)+(cat==='Low'?' — used in the low-risk age 30–59 branch.':'');} else {$('thirtyAdvice').classList.add('hide');}
+  if(r30!==null){
+    $('thirtyAdvice').classList.remove('hide');
+    const qualifies30yrLowRiskBranch=(age>=30&&age<=59&&r10<3&&r30>=10&&!specialPopulation);
+    $('thirtyAdvice').innerHTML='<b>30-year PREVENT-ASCVD risk:</b> '+formatRisk(r30)
+      +(qualifies30yrLowRiskBranch
+        ? '<div style="margin-top:6px"><b>Moderate-intensity statin may be reasonable despite low 10-year risk because the 30-year PREVENT-ASCVD risk is ≥10%.</b></div>'
+        : '');
+  } else {
+    $('thirtyAdvice').classList.add('hide');
+  }
 
   const ckdStatus=knownCkd?'Confirmed CKD stage 3–4':'No confirmed CKD stage 3–4 selected';
   $('summary').innerHTML=`<div class="kv"><span>PREVENT‑ASCVD 10-year risk</span><b>${formatRisk(r10)}</b></div>${r30!==null?`<div class="kv"><span>PREVENT‑ASCVD 30-year risk</span><b>${formatRisk(r30)}</b></div>`:''}<div class="kv"><span>Risk category</span><b>${cat}</b></div><div class="kv"><span>LDL‑C</span><b>${formatLipidInput('ldl','ldlUnit')} <span class="small">(${ldl.toFixed(0)} mg/dL)</span></b></div><div class="kv"><span>eGFR (CKD‑EPI 2021)</span><b>${egfr.toFixed(1)} mL/min/1.73m²</b></div><div class="kv"><span>CKD status used for override</span><b>${ckdStatus}</b></div><div class="kv"><span>HIV status</span><b>${hivStatus==='stableArt'?'HIV on stable ART':hivStatus==='other'?'HIV; ART status not stable/unknown':'No HIV'}</b></div><div class="kv"><span>Current statin use</span><b>${statin?'Yes':'No'}</b></div><div class="kv"><span>Non‑HDL‑C</span><b>${(tc-hdl).toFixed(0)} mg/dL <span class="small">(${((tc-hdl)/CHOL_MGDL_PER_MMOL).toFixed(2)} mmol/L)</span></b></div><div class="kv"><span>Risk enhancers selected</span><b>${enhancerLabels.length}</b></div><div class="kv"><span>Special-population override</span><b>${specialPopulation?'Yes':'No'}</b></div><div class="kv"><span>Calculation model</span><b>PREVENT‑ASCVD base</b></div>`;
